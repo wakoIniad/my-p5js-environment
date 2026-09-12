@@ -271,7 +271,7 @@ const interactiveDomain = new multiPurposeQuadTree();//domain-id
 let interactiveDomainIDCounter = 0;
 function makeInteractiveDomain(sx, sy, ex, ey, sensorType) {
   const id = ++interactiveDomainIDCounter;
-  root = 
+  //root = 
 }
 
 const DEFAULT_SCENE_KEY = "title";
