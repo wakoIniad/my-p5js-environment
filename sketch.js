@@ -244,20 +244,26 @@ class multiPurposeQuadTree {
 }
 
 class Domain {
-  constructor(sx, sy, ex, ey, value=null) {
-    this.rectangel = [sx, sy, ex, ey];
-    this._judgement = {
-      xa: (sx-ex)/2, xb: (sx+ex)/2, 
-      ya: (sy-ey)/2, yb: (sy+ey)/2
+  constructor(ss, es, value=null) {
+    this.domain_start = ss;
+    this.domain_end = es;
+    this._judgement = 
+    {
+      as: this.domain_start.map((s, i)=>(s+this.domain_end[i])/2),
+      bs: this.domain_start.map((s, i)=>(Math.abs(s-this.domain_end[i]))/2)
+        
+      //xa: (sx-ex)/2, xb: (sx+ex)/2, 
+      //ya: (sy-ey)/2, yb: (sy+ey)/2
     };
     this.value = value;
   }
-  overlap([x,y]) {
-    return
-    Math.abs(this._judgement.xa - x) > this._judgement[xb]
+  overlap(point) {
+    return point.reduce((cur, val, i)=>cur && Math.abs(this._judgement.as[i] - val) < this._judgement.bs[i], true)
+    /*return
+    Math.abs(this._judgement.xa - x) < this._judgement[xb]
       &&
-    Math.abs(this._judgement.ya - y) > this._judgement[yb]
-    ;
+    Math.abs(this._judgement.ya - y) < this._judgement[yb]
+    ;*/
   }
 }
 
