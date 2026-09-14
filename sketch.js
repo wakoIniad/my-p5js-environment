@@ -151,32 +151,38 @@ class PlayScene extends Scene {
   }
 }
 
+/**@abstract */
 class View {
   constructor() {
 
   }
   draw(clock) {
-    
+
   }
 }
 
 class AnimationImage extends View {
+  /**@override */
+  draw() {
 
+  }
 }
 
 
 class Composer {
   constructor(collider, view) {
-
+    this.pipeline = [];
   };
 }
 
 const scenes = {
   title:{
     init: ()=>{
-      const subscription = createTouchableDomain();
+      const subscription = createTouchableDomain(0, 0, width, height, "click");
       subscription.callback = function(e) {
+        logging("kami");
         loadScene("play");
+        subscription.cancel = true;
       }
     },
     draw: (clock, data)=>{
