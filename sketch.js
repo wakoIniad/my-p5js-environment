@@ -301,7 +301,7 @@ class DomainProp {
     return this;
   }
   RegisterProp(...keyv) {
-    for(let i = 0;i < keyv.length;i+=2)raw[keyv[i]]=keyv[i+1];
+    for(let i = 0;i < keyv.length;i+=2)this.prop[keyv[i]]=keyv[i+1];
     return this;
   }
   ApplyModifier(modifier) {
@@ -314,11 +314,6 @@ class MultiPurposeNDTree {
   /****寝不足コード: 要分離(参照: 上) */
   static DomainProp(parent=null) {
     return {parent: parent||null, children:[]};
-  }
-  /****寝不足コード: 要分離(参照: 上) */
-  static RegisterProp(raw, ...keyv) {
-    for(let i = 0;i < keyv.length;i+=2)raw[keyv[i]]=keyv[i+1];
-    return raw;
   }
   constructor(n, ss, es, modifier=$=>$) {
     this.n = n;
@@ -337,10 +332,10 @@ class MultiPurposeNDTree {
   subdivide_if(condition) {
     let processing = [this.root];
     let level = 0;
-    do {
+    do 
       for(let i = processing.length-1, tmp; i >= 0; i--) 
         next.push(...(tmp = domain.unshift(), condition(tmp) ? tmp.property.children = this._get_subdivided_domains(): []));
-    } while(processing.length,level++);
+    while(processing.length,level++);
   }
   //*長方形になってしまう **寝不足コード
   subdivide(level) {
