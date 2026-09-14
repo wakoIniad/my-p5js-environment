@@ -162,6 +162,9 @@ class View {
 }
 
 class AnimationImage extends View {
+  constructor(useImages) {
+    this.animArray = new Array(useImages.length).push(...useImages);
+  }
   /**@override */
   draw() {
 
