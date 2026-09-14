@@ -334,32 +334,20 @@ class MultiPurposeNDTree {
     ));
   }
   subdivide_if(condition) {
-    let domains = [this.root];
-    let next = [];
-    let flag = true;
+    let processing = [this.root];
     let level = 0;
-    while(flag) {
-      for(const domain of domains) {
-        if(condition(domain, level)) 
-          next.push(...(domain.property.children = this._get_subdivided_domains()));
-      }
-      domains=next;
-      next=[];
-      level++;
-    }
+    do {
+      for(let i = processing.length-1, tmp; i >= 0; i--) 
+        next.push(...(tmp = domain.unshift(), condition(tmp) ? tmp.property.children = this._get_subdivided_domains(): []));
+    } while(processing.length,level++);
   }
   //*長方形になってしまう **寝不足コード
-  elaborate_entire_tree(target_detail_level) {
-    let domains = [this.root];
-    let next = [];
-    let flag = true;
-    while(flag) {
-      for(const domain of domains) {
-        next.push(...(domain.property.children = this._get_subdivided_domains()));
-      }
-      domains=next;
-      next=[];
-    }
+  subdivide(level) {
+    if(level <= 0)throw new ProcessorrError("target level is below 0");
+    let processing = [this.root];
+    while(level--) 
+      for(let i = processing.length-1, tmp; i >= 0; i--) 
+        next.push(...(tmp = domain.unshift(), tmp.property.children = this._get_subdivided_domains()));
   }
   subdivide_at(point) {
     const domain = this.search(point, "point");
@@ -440,13 +428,6 @@ class TouchEventAllocator extends MultiPurposeNDTree {
       
     }
   }*/
- _builder(width, height) {
-    const longer_side = Math.max(width, height);
-  }
-  _builder_process(width, height, startx, starty) {
-    
-    Math.min(width, height);
-  }
   constructor(width, height, cell_unit) {
     const longer_side = Math.max(width, height); 
     super(2, [0, 0], [longer_side, longer_side], TouchEventAllocator.ModifyDomainProp);
