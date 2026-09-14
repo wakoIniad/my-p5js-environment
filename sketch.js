@@ -114,7 +114,7 @@ const inline_logging = new Proxy(logging, {
   }
 })
 
-function locate(img, pivotMode, expandingMode) {
+function locateImage(img, pivotMode, expandingMode) {
   /**This may cause problem when porting: key access, treatment of null */
   return [img, ...{
     [$.center]: ()=>[util.CENTER_X, util.CENTER_Y]
@@ -130,25 +130,6 @@ function locate(img, pivotMode, expandingMode) {
       [$.fit]: ()=>[util.width, util.height]
     }?.[expandingMode]?.() ?? inline_logging.err([], "there aren't such a mode")
   ];
-}
-
-/**This may cause problem when porting: depends on multi-paradigm language */
-class Scene {
-  constructor() {
-
-  }
-  init() {
-
-  }
-  draw() {
-
-  }
-}
-
-class PlayScene extends Scene {
-  map_generator() {
-    
-  }
 }
 
 /**@abstract */
@@ -171,55 +152,110 @@ class AnimationImage extends View {
   }
 }
 
-
 class Composer {
   constructor(collider, view) {
     this.pipeline = [];
   };
 }
 
-let tmp = null;
+function rectFormatChange(from, to, ...args) {
+  let universal;
+  switch(from) {
+    case "corner":
+      break;
+    case "origin":
+      break;
+    case "center":
+      universal = args;
+      break;
+  }
+  const [cx, cy, w, h] = universal;
+  switch(to) {
+    case "corner":
+      return [cx-w/2, cy-h/2, cx+w/2, cy+h/2];
+      break;
+    case "center":
+      return [cx, cy, w, h];
+    case "origin":
+      return [cx-w/2, cy-h/2, w, h];
+  }
+}
+
+/**This may cause problem when porting: depends on multi-paradigm language */
+class Scene {
+  constructor() {
+    this.variables = {};
+  }
+  init() {
+
+  }
+  draw() {
+
+  }
+}
+
+class PlayScene extends Scene {
+  map_generator() {
+    
+  }
+  /**@override */
+  init() {
+
+  }
+  /**@override */
+  draw() {
+    logging("switched");
+  }
+}
+
+class TitleScene extends Scene {
+
+  /**@override */
+  init() {
+    const subscription = createTouchableDomain(...rectFormatChange(
+      "center", "corner", width/2, height/2+height/3, width/1.5, height/8
+    ), "click");
+
+    /**just for a logging */
+    this.variables["test"] = subscription;
+
+    subscription.callback = function(e) {
+      /**仮　**寝不足コード:シーンマネージャーの扱い */
+      SceneManager.loadScene("play");
+      subscription.cancel = true;
+      
+    }
+  }
+  /**@override */
+  draw() {
+    strokeWeight(0);
+    fill(255);
+    stroke(0);
+
+    audios.title.loop();
+    image(...locateImage(images.title_base, $.center, $.cover));
+    image(images.title_text, width/2, height/2+height/6);
+    image(images.start_button, width/2, height/2+height/3);
+    rect(...rectFormatChange("center", "origin", width/2, height/2+height/3, width/1.5, height/8));
+
+    noFill();
+    stroke(255,0,0);
+    strokeWeight(2);
+    
+    this.variables["test"]._targets.forEach(e=>{
+      //console.log(e);
+      rect(
+        e.domain_start[0], e.domain_start[1],
+        e.domain_end[0]-e.domain_start[0], 
+        e.domain_end[1]-e.domain_start[1]
+      );
+    });
+  }
+}
+
 const scenes = {
-  title:{
-    init: ()=>{
-      const subscription = createTouchableDomain(64, 64, 192, 192, "click");
-      subscription._targets.forEach(e=>{
-        //console.log(e);
-        
-      })
-      tmp = subscription;
-      subscription.callback = function(e) {
-        logging("kami");
-        
-        /**仮　**寝不足コード */
-        SceneManager.loadScene("play");
-        subscription.cancel = true;
-      }
-    },
-    draw: (clock, data)=>{
-      audios.title.loop();
-      //text("AIUOE", ...util.CENTER);
-      //logging(locate(images.title_base, $.center, $.cover));
-      image(...locate(images.title_base, $.center, $.cover));
-      fill(255);
-      noStroke();
-      //rect(64, 64, 192, 192);
-      stroke(255,0,0);
-      //noFill();
-      tmp._targets.forEach(e=>{
-
-        rect(...e.domain_start, ...e.domain_end.map((v,i)=>v-e.domain_start[i]));
-      })
-    }
-  },
-  play:{
-    init: ()=>{
-
-    },
-    draw: (clock, data)=>{
-      logging("switched");
-    }
-  },
+  title: new TitleScene,
+  play: new PlayScene,
   rev:(clock, data)=>{
 
   },
@@ -290,7 +326,7 @@ class SubscriptionEntry {
   constructor(callback) {
     this.canceled = false;
     this.callback = callback;
-    this._targets = []; //just for log
+    this._targets = []; /**just for a logging */
   }
   cancel() {
     this.canceled = true;
@@ -461,7 +497,7 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   _window_event_register() {
     window.addEventListener("pointerdown", function(e) {
       const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY], "point");
-      console.log("野嶋君大好きかわいいやさいい頭いい性格いい字綺麗ノート綺麗まじめしっかりしてるたまに遅刻する", target);
+      logging("clicked-screen-domain:", target);
       TouchEventAllocator.mainInstance._backtracing_call(target, e);
     });
     if(TouchEventAllocator.HANDLE_POINTER_MOVE) {
@@ -481,11 +517,12 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   }
 
   subscribeDomain(domain, entry) {
-    console.log(644, this.search(domain, "overlap-fit"));
-    for(const target of this.search(domain, "overlap-fit")) 
+    console.log("to subscribe:", domain, this.search(domain, "overlap-fit"));
+    for(const target of this.search(domain, "overlap-fit")) {
       target.property.subscription.subscrbe(entry),
-    /**just for a log */
+      /**just for a logging */
       entry._targets.push(target);
+    }
   }
 }
 
@@ -528,6 +565,7 @@ class NdDomain {
     for(const point of domain.get_corners()) {
       if(this.contain(point))return true;
     }
+    return false;
   }
   containDomain(domain) {
     for(const corner of domain.get_corners()) {
