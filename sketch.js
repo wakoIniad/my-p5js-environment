@@ -178,7 +178,7 @@ class Composer {
 const scenes = {
   title:{
     init: ()=>{
-      const subscription = createTouchableDomain(0, 0, width, height, "click");
+      const subscription = createTouchableDomain(64, 64, 192, 192, "click");
       subscription.callback = function(e) {
         logging("kami");
         loadScene("play");
@@ -190,6 +190,8 @@ const scenes = {
       //text("AIUOE", ...util.CENTER);
       //logging(locate(images.title_base, $.center, $.cover));
       image(...locate(images.title_base, $.center, $.cover));
+      fill(255);
+      rect(64, 64, 192, 192);
     }
   },
   play:(clock, data)=>{
@@ -265,6 +267,7 @@ class SubscriptionEntry {
   constructor(callback) {
     this.canceled = false;
     this.callback = callback;
+    this._targets = []; //just for log
   }
   cancel() {
     this.canceled = true;
@@ -308,9 +311,11 @@ class DomainProp {
 
 //Bi Quad Oct...
 class MultiPurposeNDTree {
+  /****寝不足コード: 要分離(参照: 上) */
   static DomainProp(parent=null) {
     return {parent: parent||null, children:[]};
   }
+  /****寝不足コード: 要分離(参照: 上) */
   static RegisterProp(raw, ...keyv) {
     for(let i = 0;i < keyv.length;i+=2)raw[keyv[i]]=keyv[i+1];
     return raw;
@@ -322,8 +327,25 @@ class MultiPurposeNDTree {
     this.modifier=modifier;
     this.root = new Domain(ss, es, this.modifier(MultiPurposeNDTree.DomainProp()));
   }
-  elaborate_entire_tree(at) {
-    const domain = this.search(at, "point");
+  //*長方形になってしまう **寝不足コード
+  elaborate_entire_tree(target_detail_level) {
+    let domains = [this.root];
+    let next = [];
+    let flag = true;
+    while(flag) {
+      for(const domain of domains) {
+        domain.property.children = new Array(2**this.n).fill().map((_,i)=>new Domain(
+          domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
+          domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
+        ));
+        next.push(...domain.property.children);
+      }
+      domains=next;
+      next=[];
+    }
+  }
+  elaborate_at(point) {
+    const domain = this.search(point, "point");
     domain.property.children = new Array(2**this.n).fill().map((_,i)=>new Domain(
       domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
       domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
@@ -412,9 +434,6 @@ class TouchEventAllocator extends MultiPurposeNDTree {
       });
     }
   }
-  elaborate_entire_tree(at) {
-    super.elaborate_entire_tree(at);
-  }
 
   _backtracing_call(node, data={}) {
     do {
@@ -427,8 +446,8 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   subscribeDomain(domain, entry) {
     
     for(const target of this.search(domain, "overlap-fit")) 
-      target.property.subscription.subscrbe(entry);
-    
+      target.property.subscription.subscrbe(entry),
+      /**just for log */entry._targets.push(target);
   }
 }
 
