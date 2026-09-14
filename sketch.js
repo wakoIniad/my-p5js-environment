@@ -279,8 +279,8 @@ class Data {
 }
 
 class DomainProp {
-  constructor(prop) {
-    this.prop = prop;
+  constructor(generator=()=>({})) {
+    this.generator = generator;
   }
   /**
    * @param {*} keys 
@@ -317,8 +317,8 @@ class MultiPurposeNDTree {
     this.n = n;
     if(ss.length != n || es.length != n)
       throw new ProcessorrError();
-    this.root = new Domain(ss, es, MultiPurposeNDTree.DomainProp());
     this.modifier=modifier;
+    this.root = new Domain(ss, es, this.modifier(MultiPurposeNDTree.DomainProp()));
   }
   elaborate_entire_tree(at) {
     const domain = this.search(at, "point");
@@ -326,8 +326,7 @@ class MultiPurposeNDTree {
       domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
       domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
     ), //MultiPurposeNDTree.DomainProp().RegisterProp("parent", domain).ApplyModifier(this.modifier)
-      this.modifier(MultiPurposeNDTree.DomainProp(domain)
-    )
+      this.modifier(MultiPurposeNDTree.DomainProp(domain))
   );
     return domain;
   }
@@ -342,23 +341,21 @@ class MultiPurposeNDTree {
         let counter = 0;
         while(candidates.length) {
           const scanning = candidates.pop();
-          console.log(34, scanning);
           const cornerPoints = 
           new Array(2**this.n).fill().map((_,i)=>
             scanning.domain_start.map((val,j)=>
               val * (1-((i>>j)&1)) + scanning.domain_end[j] * ((i>>j)&1)
             )
           );
-          console.log(34, cornerPoints);
           let innerCorners = 0;
           for(let i=0,corner=cornerPoints[i]; i < cornerPoints.length;corner=cornerPoints[++i]) {
             innerCorners += target.contain(corner)*2**i;
           }
           if(innerCorners === 2**this.n-1) {
-            result.push(innerCorners);
+            result.push(scanning);
           } else if(innerCorners && scanning.property.children.length) {
             for(let i = 0; i < this.n; i++) {
-              if((innerCorners << i)&1) {
+              if((innerCorners >> i)&1) {
                 candidates.push(scanning.property.children[i]);
               }
             }
@@ -392,6 +389,7 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   static mainInstance = null;
   static ModifyDomainProp(raw) {
     raw.subscription = new SubscriptionSystem();
+    return raw;
   }
   constructor(width, height) {
     super(2, [0, 0], [width, height], TouchEventAllocator.ModifyDomainProp);
@@ -428,7 +426,6 @@ class TouchEventAllocator extends MultiPurposeNDTree {
     
     for(const dom of this.search(domain, "overlap-fit")) 
       dom.property.subscription.subscrbe(entry);
-    logging("domdom", domain, this, this.search(domain, "overlap-fit"));
     
   }
 }
