@@ -227,12 +227,32 @@ class ProcessorrError extends Error {
 
 class SubscriptionSystem {
   constructor() {
-
+    this.subscribers = [];
   }
-
+  subscrbe(entry) {
+    this.subscribers.push(entry);
+  }
+  provide(data) {
+    for(const [i, subscriber] of this.subscribers.entries()) {
+      if(subscriber.canceled) {
+        delete this.subscribers[i];
+      }
+    }
+    this.subscribers = this.subscribers.flat();
+  }
 }
 
-class SubscriptionListener {
+class Subscriber {
+  constructor(handler) {
+    this.canceled = false;
+    this.handler = handler;
+  }
+  cancel() {
+    this.canceled = true;
+  }
+}
+
+/*class SubscriptionListener {
   constructor(callback) {
     this.keep_subscribe = true;
     this._callback = callback;
@@ -249,7 +269,7 @@ class SubscriptionListener {
     }
     this._callback(survey);
   }
-}
+}*/
 
 //Bi Quad Oct...
 class multiPurposeNDTree {
@@ -327,7 +347,7 @@ class TouchEventAllocator extends multiPurposeNDTree {
   static handlePointerMove = false;
   static eventShortestDuration = 1/30;
   static ModifyDomainProp(raw) {
-    raw.prop["subscriber_list"] = [];
+    raw.prop["subscription"] = [];
   }
   constructor(...args) {
     super(...args, TouchEventAllocator.ModifyDomainProp);
