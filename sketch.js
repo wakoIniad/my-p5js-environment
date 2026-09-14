@@ -330,7 +330,8 @@ class MultiPurposeNDTree {
   _get_subdivided_domains(){
     return new Array(2**this.n).fill().map((_,i)=>new NdDomain(
       domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
-      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
+      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1)),
+      this.modifier(MultiPurposeNDTree.DomainProp(domain))
     ));
   }
   subdivide_if(condition) {
@@ -351,12 +352,7 @@ class MultiPurposeNDTree {
   }
   subdivide_at(point) {
     const domain = this.search(point, "point");
-    domain.property.children = new Array(2**this.n).fill().map((_,i)=>new NdDomain(
-      domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
-      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
-    ), //MultiPurposeNDTree.DomainProp().RegisterProp("parent", domain).ApplyModifier(this.modifier)
-      this.modifier(MultiPurposeNDTree.DomainProp(domain))
-  );
+    domain.property.children = this._get_subdivided_domains();
     return domain;
   }
   search(target, type) {
