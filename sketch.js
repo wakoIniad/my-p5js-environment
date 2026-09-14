@@ -175,13 +175,21 @@ class Composer {
   };
 }
 
+let tmp = null;
 const scenes = {
   title:{
     init: ()=>{
       const subscription = createTouchableDomain(64, 64, 192, 192, "click");
+      subscription._targets.forEach(e=>{
+        //console.log(e);
+        
+      })
+      tmp = subscription;
       subscription.callback = function(e) {
         logging("kami");
-        loadScene("play");
+        
+        /**仮　**寝不足コード */
+        SceneManager.loadScene("play");
         subscription.cancel = true;
       }
     },
@@ -191,11 +199,23 @@ const scenes = {
       //logging(locate(images.title_base, $.center, $.cover));
       image(...locate(images.title_base, $.center, $.cover));
       fill(255);
-      rect(64, 64, 192, 192);
+      noStroke();
+      //rect(64, 64, 192, 192);
+      stroke(255,0,0);
+      //noFill();
+      tmp._targets.forEach(e=>{
+
+        rect(...e.domain_start, ...e.domain_end.map((v,i)=>v-e.domain_start[i]));
+      })
     }
   },
-  play:(clock, data)=>{
-    logging("switched");
+  play:{
+    init: ()=>{
+
+    },
+    draw: (clock, data)=>{
+      logging("switched");
+    }
   },
   rev:(clock, data)=>{
 
@@ -322,28 +342,28 @@ class MultiPurposeNDTree {
     this.modifier=modifier;
     this.root = new NdDomain(ss, es, this.modifier(MultiPurposeNDTree.DomainProp()));
   }
-  _get_subdivided_domains(){
+  _get_subdivided_domains(origin){
     return new Array(2**this.n).fill().map((_,i)=>new NdDomain(
-      domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
-      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1)),
-      this.modifier(MultiPurposeNDTree.DomainProp(domain))
+      origin.domain_start.map((val,j)=> val + origin.domain_width[j]*((i>>j)&1)),
+      origin.domain_end.map((val,j)=> val - origin.domain_width[j]*(1-(i>>j)&1)),
+      this.modifier(MultiPurposeNDTree.DomainProp(origin))
     ));
   }
   subdivide_if(condition) {
     let processing = [this.root];
     let level = 0;
     do 
-      for(let i = processing.length-1, tmp; i >= 0; i--) 
-        next.push(...(tmp = domain.unshift(), condition(tmp) ? tmp.property.children = this._get_subdivided_domains(): []));
-    while(processing.length,level++);
+      for(let i = processing.length-1, origin; i >= 0; i--) 
+        processing.push(...(origin = processing.shift(), condition(origin, level) ? origin.property.children = this._get_subdivided_domains(origin): []));
+    while(logging(`heavy process: subdivide of MultiPurposeNDTree (${level})`),++level,processing.length);
   }
   //*長方形になってしまう **寝不足コード
   subdivide(level) {
     if(level <= 0)throw new ProcessorrError("target level is below 0");
     let processing = [this.root];
     while(level--) 
-      for(let i = processing.length-1, tmp; i >= 0; i--) 
-        next.push(...(tmp = domain.unshift(), tmp.property.children = this._get_subdivided_domains()));
+      for(let i = processing.length-1, origin; i >= 0; i--) 
+        processing.push(...(origin = domain.unshift(), origin.property.children = this._get_subdivided_domains()));
   }
   subdivide_at(point) {
     const domain = this.search(point, "point");
@@ -361,32 +381,36 @@ class MultiPurposeNDTree {
         let counter = 0;
         while(candidates.length) {
           const scanning = candidates.pop();
-          const cornerPoints = scanning.get_corners();
-          let innerCorners = 0;
-          for(let i=0,corner=cornerPoints[i]; i < cornerPoints.length;corner=cornerPoints[++i]) {
-            innerCorners += target.contain(corner)*2**i;
-          }
-          if(innerCorners === 2**this.n-1) {
-            result.push(scanning);
-          } else if(innerCorners && scanning.property.children.length) {
-            for(let i = 0; i < this.n; i++) {
-              if((innerCorners >> i)&1) {
-                candidates.push(scanning.property.children[i]);
-              }
+          /*let innerCorners = 0;
+          for(const [i, corner] of scanning.get_corners().entries()) {
+          //for(let i=0,corner=cornerPoints[i]; i < cornerPoints.length;corner=cornerPoints[++i]) {
+            innerCorners += (target.contain(corner)||)*2**i;
+          }*/
+          if(target.containDomain(scanning)) {
+            result.push(scanning)
+          } else //filter禁止令
+          //candidates.push(...scanning.property.children.filter(child=>child.overlap(target)));
+          {
+            for(const child of scanning.property.children) {
+              if(child.overlap(target)) candidates.push(child);
             }
           }
         } 
         return result;
       case "point":
         let scanning = this.root;
+        breakLoop:
         while(true) {
-          for(const domain of scanning.property.children) {
-            if(domain.contain(target)) {
-              scanning = domain;
-              break;
+          continueLoop: 
+          for(;;){
+            for(const domain of scanning.property.children) {
+              if(domain.contain(target)) {
+                scanning = domain;
+                break continueLoop;
+              }
             }
+            break breakLoop;
           }
-          break;
         }
         if(!scanning.contain(target))
           throw new ProcessorrError("MultiPurposeNDTree: out of domain");
@@ -423,8 +447,8 @@ class TouchEventAllocator extends MultiPurposeNDTree {
     const longer_side = Math.max(width, height); 
     super(2, [0, 0], [longer_side, longer_side], TouchEventAllocator.ModifyDomainProp);
     
-    const screen_domain = new NdDomain([0,0],[width,heght]);
-    this.subdivide_if((domain, level)=>domain.overlap(screen_domain) && domain.width[0] > cell_unit);
+    const screen_domain = new NdDomain([0,0],[width,height]);
+    this.subdivide_if((domain, level)=>domain.overlap(screen_domain) && domain.domain_width[0] > cell_unit);
 
     if(TouchEventAllocator.mainInstance) {
       logging.warn("SingletonInstance was overrided: TouchEventAllocator");
@@ -434,6 +458,7 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   _window_event_register() {
     window.addEventListener("pointerdown", function(e) {
       const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY], "point");
+      console.log("野嶋君大好きかわいいやさいい頭いい性格いい字綺麗ノート綺麗まじめしっかりしてるたまに遅刻する", target);
       TouchEventAllocator.mainInstance._backtracing_call(target, e);
     });
     if(TouchEventAllocator.HANDLE_POINTER_MOVE) {
@@ -453,10 +478,11 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   }
 
   subscribeDomain(domain, entry) {
-    
+    console.log(644, this.search(domain, "overlap-fit"));
     for(const target of this.search(domain, "overlap-fit")) 
       target.property.subscription.subscrbe(entry),
-      /**just for log */entry._targets.push(target);
+    /**just for a log */
+      entry._targets.push(target);
   }
 }
 
@@ -500,6 +526,12 @@ class NdDomain {
       if(this.contain(point))return true;
     }
   }
+  containDomain(domain) {
+    for(const corner of domain.get_corners()) {
+      if(!this.contain(corner))return false;
+    }
+    return true;
+  }
   get_overlaps(domain) {
     
   }
@@ -534,4 +566,4 @@ function draw() {
 }
 
 
-const touchEventAllocator = new TouchEventAllocator(window.innerWidth, window.innerHeight);
+const touchEventAllocator = new TouchEventAllocator(window.innerWidth, window.innerHeight, 2);
