@@ -76,13 +76,6 @@ const buttons = {
   start: ['','',()=>locate()]
 }
 
-function map_generator() {
-
-}
-
-function preload() {
-}
-
 function logging(...$) {
   //alert(JSON.stringify($));
   console.log(...$);
@@ -103,11 +96,6 @@ const $ = {
   center: "CENTER"
 };
 
-/*function _inline_logging_handler(res=null, ...args) {
-  logging(...args);
-  return res;
-}*/
-
 const inline_logging = new Proxy(logging, {
   apply: function(target, thisArg, [res, ...argArray]) {
     target.apply(thisArg, argArray);
@@ -125,11 +113,6 @@ const inline_logging = new Proxy(logging, {
     }
   }
 })
-
-/*function inline_logging(res=null, ...args) {
-  logging(...args);
-  return res;
-}*/
 
 function locate(img, pivotMode, expandingMode) {
   /**This may cause problem when porting: key access, treatment of null */
@@ -149,12 +132,52 @@ function locate(img, pivotMode, expandingMode) {
   ];
 }
 
+/**This may cause problem when porting: depends on multi-paradigm language */
+class Scene {
+  constructor() {
+
+  }
+  init() {
+
+  }
+  draw() {
+
+  }
+}
+
+class PlayScene extends Scene {
+  map_generator() {
+    
+  }
+}
+
+class View {
+  constructor() {
+
+  }
+  draw(clock) {
+    
+  }
+}
+
+class AnimationImage extends View {
+
+}
+
+
+class Composer {
+  constructor(collider, view) {
+
+  };
+}
+
 const scenes = {
   title:{
     init: ()=>{
-      buttons.start.mousePressed(()=> {
+      const subscription = createTouchableDomain();
+      subscription.callback = function(e) {
         loadScene("play");
-      });
+      }
     },
     draw: (clock, data)=>{
       audios.title.loop();
@@ -207,22 +230,6 @@ async function setup() {
   SceneManager.loadScene(DEFAULT_SCENE_KEY);
 }
 
-//const keep_elements
-
-/*class ButtonManager {
-  constructor(label, value) {
-    this.element = null;
-    this.label = label;
-    this.value = value;
-  }
-  _create() {
-    createButton(this.label, this.value);
-  }
-  draw() {
-    
-  }
-}*/
-
 class ProcessorrError extends Error {
   constructor(...args) {
     super(...args);
@@ -247,33 +254,14 @@ class SubscriptionSystem {
 }
 
 class SubscriptionEntry {
-  constructor(handler) {
+  constructor(callback) {
     this.canceled = false;
-    this.handler = handler;
+    this.callback = callback;
   }
   cancel() {
     this.canceled = true;
   }
 }
-
-/*class SubscriptionListener {
-  constructor(callback) {
-    this.keep_subscribe = true;
-    this._callback = callback;
-  }
-  call(self_break) {
-    if(!this.keep_subscribe) {
-      self_break();
-      return;
-    }
-    const survey = (keep) => {
-      if(keep) {
-        this.keep_subscribe = true;
-      } else this.keep_subscribe = false;
-    }
-    this._callback(survey);
-  }
-}*/
 
 //Bi Quad Oct...
 class MultiPurposeNDTree {
@@ -410,10 +398,11 @@ class Domain {
 }
 
 let interactiveDomainIDCounter = 0;
-function makeInteractiveDomain(sx, sy, ex, ey, sensorType) {
+function createTouchableDomain(sx, sy, ex, ey, sensorType) {
   const id = ++interactiveDomainIDCounter;
-  root = interactiveDomain.root;
-  touchEventAllocator.subscribeDomain(new Domain([sx, sy], [ex, ey]), new SubscriptionEntry());
+  const subscriptionEntry = new SubscriptionEntry();
+  touchEventAllocator.subscribeDomain(new Domain([sx, sy], [ex, ey]), subscriptionEntry);
+  return subscriptionEntry;
 }
 
 const DEFAULT_SCENE_KEY = "title";
