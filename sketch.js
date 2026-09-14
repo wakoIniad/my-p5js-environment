@@ -269,10 +269,49 @@ class SubscriptionEntry {
   }
 }
 
+class Data {
+  constructor() {
+    this.$ = [];
+  }
+  union() {
+
+  }
+}
+
+class DomainProp {
+  constructor(prop) {
+    this.prop = prop;
+  }
+  /**
+   * @param {*} keys 
+   * [len1, len1, len1..., len2, len2, len2 ... len3 ...]
+   */
+  construct() {
+  }
+  get(key) {
+    return this.prop[key];
+  }
+  set(key, value) {
+    this.prop[key] = value;
+    return this;
+  }
+  RegisterProp(...keyv) {
+    for(let i = 0;i < keyv.length;i+=2)raw[keyv[i]]=keyv[i+1];
+    return this;
+  }
+  ApplyModifier(modifier) {
+    this.prop = modifier(this.prop);
+  }
+}
+
 //Bi Quad Oct...
 class MultiPurposeNDTree {
-  static DomainProp({parent}) {
-    return {parent: parent||null, children:[], prop: {}};
+  static DomainProp(parent=null) {
+    return {parent: parent||null, children:[]};
+  }
+  static RegisterProp(raw, ...keyv) {
+    for(let i = 0;i < keyv.length;i+=2)raw[keyv[i]]=keyv[i+1];
+    return raw;
   }
   constructor(n, ss, es, modifier=$=>$) {
     this.n = n;
@@ -284,29 +323,35 @@ class MultiPurposeNDTree {
   elaborate_entire_tree(at) {
     const domain = this.search(at, "point");
     domain.property = new Array(2**this.n).fill().map((_,i)=>new Domain(
-      domain.ss.map((val,j)=> val + domain.width[j]*((i<<j)&1)),
-      domain.es.map((val,j)=> val - domain.width[j]*(1-(i<<j)&1))
-    ), this.modifier(multiPurposeNDTree.DomainProp({parent: domain})));
+      domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
+      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
+    ), //MultiPurposeNDTree.DomainProp().RegisterProp("parent", domain).ApplyModifier(this.modifier)
+      this.modifier(MultiPurposeNDTree.DomainProp(domain)
+    )
+  );
     return domain;
   }
   search(target, type) {
     switch(type) {
-      //case "overlap-lack":  重なってるけど足りてない部分があるものすべて
-      //case "overlap-full":  親ドメイン含めて、少しでも重なってるなら欠けているもの含め全て
-      case "overlap-fit":
+      //case "overlap-lack"://特殊  重なってるけど足りてない部分があるものすべて contain-fit
+      //case "overlap-full"://contain  親ドメイン含めて、少しでも重なってるなら欠けているもの含め全て
+      case "overlap-fit"://fit
         /**target: domain */
         const candidates = [this.root];
         const result = [];
+        let counter = 0;
         while(candidates.length) {
           const scanning = candidates.pop();
+          console.log(34, scanning);
           const cornerPoints = 
           new Array(2**this.n).fill().map((_,i)=>
-            scanning.ss.map((val,j)=>
-              val * (1-((i<<j)&1)) + scanning.es[i] * ((i<<j)&1)
-            ),
+            scanning.domain_start.map((val,j)=>
+              val * (1-((i>>j)&1)) + scanning.domain_end[j] * ((i>>j)&1)
+            )
           );
-          const innerCorners = 0;
-          for(let i=0,corner=null; i < cornerPoints, corner=cornerPoints[i].length;i++) {
+          console.log(34, cornerPoints);
+          let innerCorners = 0;
+          for(let i=0,corner=cornerPoints[i]; i < cornerPoints.length;corner=cornerPoints[++i]) {
             innerCorners += target.contain(corner)*2**i;
           }
           if(innerCorners === 2**this.n-1) {
@@ -380,11 +425,11 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   }
 
   subscribeDomain(domain, entry) {
-    while(true) {
-      for(const dom of this.search(domain, "overlap-fit")) {
-        dom.property.subscription.subscrbe(entry);
-      };
-    }
+    
+    for(const dom of this.search(domain, "overlap-fit")) 
+      dom.property.subscription.subscrbe(entry);
+    logging("domdom", domain, this, this.search(domain, "overlap-fit"));
+    
   }
 }
 
@@ -432,4 +477,4 @@ function draw() {
 }
 
 
-const touchEventAllocator = new TouchEventAllocator(window.clientWidth, window.clientHeight);
+const touchEventAllocator = new TouchEventAllocator(window.innerWidth, window.innerHeight);
