@@ -273,7 +273,9 @@ class multiPurposeNDTree {
   }
   search(target, type) {
     switch(type) {
-      case "overlap":
+      //case "overlap-lack":  重なってるけど足りてない部分があるものすべて
+      //case "overlap-full":  親ドメイン含めて、少しでも重なってるなら欠けているもの含め全て
+      case "overlap-fit":
         /**target: domain */
         const candidates = [this.root];
         const result = [];
@@ -336,27 +338,23 @@ class TouchEventAllocator extends multiPurposeNDTree {
 
   _backtrace_with_functioncalling(node, data={}) {
     do {
-      for(const [i, subscription] of node.property.prop.subscriber_list.entries()) {
+      for(const [i, subscription] of node.property.prop["subscriber_list"].entries()) {
         if(subscription.unsubscribed) {
-          delete node.property.prop.subscriber_list[i];
+          delete node.property.prop["subscriber_list"][i];
         } else {
           subscription.callback(data);
         }
       }
-      node.property.prop.subscriber_list = node.property.prop.subscriber_list.flat();
+      node.property.prop["subscriber_list"] = node.property.prop["subscriber_list"].flat();
       node = node.property.parent;
     }
     while(node.property.parent);
   }
-  
-  subscribeDomain(domain) {
+
+  subscribeDomain(domain, entry) {
     while(true) {
-      for(const dom of this.serach(domain, "overlap")) {
-        if(lack) {
-          this.search(domain, 'overlap', dom);...##
-        } elif(full) {
-          dom--subscribe();
-        }
+      for(const dom of this.serach(domain, "overlap-fit")) {
+        dom.property.prop["subscriber_list"].push(entry);
       };
     }
   }
