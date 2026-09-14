@@ -253,26 +253,23 @@ class SubscriptionListener {
 
 //Bi Quad Oct...
 class multiPurposeNDTree {
-  constructor(n, ss, es) {
+  static DomainProp({parent}) {
+    return {parent: parent||null, children:[], prop: {}};
+  }
+  constructor(n, ss, es, modifier=$=>$) {
     this.n = n;
     if(ss.length != n || es.length != n)
       throw new ProcessorrError();
-    this.root = Domain(ss, es, [])
+    this.root = new Domain(ss, es, multiPurposeNDTree.DomainProp());
+    this.modifier=modifier;
   }
   elaborate_entire_tree(at) {
     const domain = this.search(at, "point");
-    /**
-     * 
-     */
     domain.property = new Array(2**this.n).fill().map((_,i)=>new Domain(
-      domain.ss.map((val,j)=> 
-        val + (domain.es[j]-val)/2*((i<<j)&1)>>j),
-        //(val + domain.es * ((i<<j)&1)>>j))/(1+((i<<j)&1)>>j)),
-      domain.es.map((val,j)=> 
-        //val - val/2 * ((i<<j)&1)>>j 
-        val - (val - domain.ss[j])/2*((i<<j)&1)>>j)
-    ), []
-    );
+      domain.ss.map((val,j)=> val + domain.width[j]*((i<<j)&1)),
+      domain.es.map((val,j)=> val - domain.width[j]*(1-(i<<j)&1))
+    ), this.modifier(multiPurposeNDTree.DomainProp({parent: domain})));
+    return domain;
   }
   search(target, type) {
     switch(type) {
@@ -282,27 +279,29 @@ class multiPurposeNDTree {
         const result = [];
         while(candidates.length) {
           const scanning = candidates.pop();
-          const corners = 
+          const cornerPoints = 
           new Array(2**this.n).fill().map((_,i)=>
             scanning.ss.map((val,j)=>
-              val * (((i<<j)&1)>>j) + scanning.es[i] * (1-(((i<<j)&1)>>j))
+              val * (1-((i<<j)&1)) + scanning.es[i] * ((i<<j)&1)
             ),
-            //scanning.es.map((val,j)=>val * ((i<<j)&1)>>j), []
           );
           const innerCorners = 0;
-          for(let i=0,corner=null; i < corners, corner=corners[i].length;i++) {
+          for(let i=0,corner=null; i < cornerPoints, corner=cornerPoints[i].length;i++) {
             innerCorners += target.contain(corner)*2**i;
           }
           if(innerCorners === 2**this.n-1) {
             result.push(innerCorners);
-          } else if(innerCorners && scanning.property.length) {
-            (1-(((i<<j)&1)>>j)) + val * (((i<<j)&1)>>j)
+          } else if(innerCorners && scanning.property.children.length) {
+            for(let i = 0; i < this.n; i++) {
+              if((innerCorners << i)&1) {
+                candidates.push(scanning.property.children[i]);
+              }
+            }
           }
         } 
-        break;
+        return result;
       case "point":
         let scanning = this.root;
-        
         while(true) {
           for(const domain of scanning.property) {
             if(domain.contain(target)) {
@@ -323,15 +322,33 @@ class multiPurposeNDTree {
 }
 
 class TouchEventAllocator extends multiPurposeNDTree {
+  static handlePointerMove = false;
+  static eventShortestDuration = 1/30;
+  static ModifyDomainProp(raw) {
+    raw.prop["subscriber_list"] = [];
+  }
   constructor(...args) {
-    super(...args);
+    super(...args, TouchEventAllocator.ModifyDomainProp);
   }
-  _backtrace_with_functioncalling(node) {
-    while(true) {
-      callback: node.property...();
-      const parent = node.property...;
+  elaborate_entire_tree(at) {
+    super.elaborate_entire_tree(at);
+  }
+
+  _backtrace_with_functioncalling(node, data={}) {
+    do {
+      for(const [i, subscription] of node.property.prop.subscriber_list.entries()) {
+        if(subscription.unsubscribed) {
+          delete node.property.prop.subscriber_list[i];
+        } else {
+          subscription.callback(data);
+        }
+      }
+      node.property.prop.subscriber_list = node.property.prop.subscriber_list.flat();
+      node = node.property.parent;
     }
+    while(node.property.parent);
   }
+  
   subscribeDomain(domain) {
     while(true) {
       for(const dom of this.serach(domain, "overlap")) {
@@ -349,23 +366,14 @@ class Domain {
   constructor(ss, es, property=null) {
     this.domain_start = ss;
     this.domain_end = es;
-    this._judgement = 
-    {
-      as: this.domain_start.map((s, i)=>(s+this.domain_end[i])/2),
-      bs: this.domain_start.map((s, i)=>(Math.abs(s-this.domain_end[i]))/2)
-        
-      //xa: (sx-ex)/2, xb: (sx+ex)/2, 
-      //ya: (sy-ey)/2, yb: (sy+ey)/2
-    };
+
+    this.domain_center = this.domain_start.map((s, i)=>(s+this.domain_end[i])/2);
+    this.domain_width  = this.domain_start.map((s, i)=>(Math.abs(s-this.domain_end[i]))/2);
+
     this.property = property;
   }
   contain(point) {
-    return point.reduce((cur, val, i)=>cur && Math.abs(this._judgement.as[i] - val) < this._judgement.bs[i], true)
-    /*return
-    Math.abs(this._judgement.xa - x) < this._judgement[xb]
-      &&
-    Math.abs(this._judgement.ya - y) < this._judgement[yb]
-    ;*/
+    return point.reduce((cur, val, i)=>cur && Math.abs(this.domain_center[i] - val) <= this.domain_width[i], true)
   }
 }
 
@@ -396,9 +404,16 @@ function draw() {
   }
 }
 
+
+const touchEventAllocator = new TouchEventAllocator(window.clientWidth, window.clientHeight);
 function WindowEventRegister() {
   window.addEventListener("pinterdown", function(e) {
-    getAt e.clientX, e.clientX
-    
+    const target = touchEventAllocator.serach([e.clientX, e.clientY],"point");
+    target._backtrace_with_functioncalling
   });
+  if(touchEventAllocator.handlePointerMove) {
+    window.addEventListener("pointermove", function(e) {
+      touchEventAllocator.serach([e.clientX, e.clientY], "point");
+    });
+  }
 }
