@@ -323,9 +323,30 @@ class MultiPurposeNDTree {
   constructor(n, ss, es, modifier=$=>$) {
     this.n = n;
     if(ss.length != n || es.length != n)
-      throw new ProcessorrError();
+      throw new ProcessorrError("unmatch designated dimention and argument dimention");
     this.modifier=modifier;
-    this.root = new Domain(ss, es, this.modifier(MultiPurposeNDTree.DomainProp()));
+    this.root = new NdDomain(ss, es, this.modifier(MultiPurposeNDTree.DomainProp()));
+  }
+  _get_subdivided_domains(){
+    return new Array(2**this.n).fill().map((_,i)=>new NdDomain(
+      domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
+      domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
+    ));
+  }
+  subdivide_if(condition) {
+    let domains = [this.root];
+    let next = [];
+    let flag = true;
+    let level = 0;
+    while(flag) {
+      for(const domain of domains) {
+        if(condition(domain, level)) 
+          next.push(...(domain.property.children = this._get_subdivided_domains()));
+      }
+      domains=next;
+      next=[];
+      level++;
+    }
   }
   //*長方形になってしまう **寝不足コード
   elaborate_entire_tree(target_detail_level) {
@@ -334,19 +355,15 @@ class MultiPurposeNDTree {
     let flag = true;
     while(flag) {
       for(const domain of domains) {
-        domain.property.children = new Array(2**this.n).fill().map((_,i)=>new Domain(
-          domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
-          domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
-        ));
-        next.push(...domain.property.children);
+        next.push(...(domain.property.children = this._get_subdivided_domains()));
       }
       domains=next;
       next=[];
     }
   }
-  elaborate_at(point) {
+  subdivide_at(point) {
     const domain = this.search(point, "point");
-    domain.property.children = new Array(2**this.n).fill().map((_,i)=>new Domain(
+    domain.property.children = new Array(2**this.n).fill().map((_,i)=>new NdDomain(
       domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
       domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
     ), //MultiPurposeNDTree.DomainProp().RegisterProp("parent", domain).ApplyModifier(this.modifier)
@@ -365,12 +382,7 @@ class MultiPurposeNDTree {
         let counter = 0;
         while(candidates.length) {
           const scanning = candidates.pop();
-          const cornerPoints = 
-          new Array(2**this.n).fill().map((_,i)=>
-            scanning.domain_start.map((val,j)=>
-              val * (1-((i>>j)&1)) + scanning.domain_end[j] * ((i>>j)&1)
-            )
-          );
+          const cornerPoints = scanning.get_corners();
           let innerCorners = 0;
           for(let i=0,corner=cornerPoints[i]; i < cornerPoints.length;corner=cornerPoints[++i]) {
             innerCorners += target.contain(corner)*2**i;
@@ -415,8 +427,33 @@ class TouchEventAllocator extends MultiPurposeNDTree {
     raw.subscription = new SubscriptionSystem();
     return raw;
   }
-  constructor(width, height) {
-    super(2, [0, 0], [width, height], TouchEventAllocator.ModifyDomainProp);
+  /*_builder(width, height) {
+    const ref = Math.max(width, height);
+    const root = new MultiPurposeNDTree(ref, ref);
+
+    let [sw, sh, curw, curh] = [0, 0, width, height];
+    while(true) {
+      const m = Math.min(curw, curh);
+      ...this._builder(m, )
+      curw -= sw = (m + sw)%curw;
+      curh -= sh = (m + sh)%curh;
+      
+    }
+  }*/
+ _builder(width, height) {
+    const longer_side = Math.max(width, height);
+  }
+  _builder_process(width, height, startx, starty) {
+    
+    Math.min(width, height);
+  }
+  constructor(width, height, cell_unit) {
+    const longer_side = Math.max(width, height); 
+    super(2, [0, 0], [longer_side, longer_side], TouchEventAllocator.ModifyDomainProp);
+    
+    const screen_domain = new NdDomain([0,0],[width,heght]);
+    this.subdivide_if((domain, level)=>domain.overlap(screen_domain) && domain.width[0] > cell_unit);
+
     if(TouchEventAllocator.mainInstance) {
       logging.warn("SingletonInstance was overrided: TouchEventAllocator");
       TouchEventAllocator.mainInstance = this;
@@ -451,8 +488,8 @@ class TouchEventAllocator extends MultiPurposeNDTree {
   }
 }
 
-class Domain {
-  constructor(ss, es, property=null) {
+class NdDomain {
+  constructor(ss, es, property=null, n=null) {
     this.domain_start = ss;
     this.domain_end = es;
 
@@ -460,9 +497,39 @@ class Domain {
     this.domain_width  = this.domain_start.map((s, i)=>(Math.abs(s-this.domain_end[i]))/2);
 
     this.property = property;
+
+    if(n) {
+      if(this.domain_start.length === n && this.domain_end.length === n) {
+        this.n = n;
+      } else throw new ProcessorrError("unmatch designated dimention and argument dimention");
+    } else {
+      if(this.domain_start.length === this.domain_end.length) {
+        this.n =  this.domain_end.length;
+      } else throw new ProcessorrError("unmatch designated dimention and argument dimention");
+    }
+  }
+  get_corners() {
+    return new Array(2**this.n).fill().map((_,i)=>
+      this.domain_start.map((val,j)=>
+        val * (1-((i>>j)&1)) + this.domain_end[j] * ((i>>j)&1)
+      )
+    );
   }
   contain(point) {
     return point.reduce((cur, val, i)=>cur && Math.abs(this.domain_center[i] - val) <= this.domain_width[i], true)
+  }
+  overlap(domain) {
+    if(this.n !== domain.n)throw new ProcessorrError("unmatch designated dimention and argument dimention");
+    //後: これより良い方法 
+    for(const point of this.get_corners()) {
+      if(domain.contain(point))return true;
+    }
+    for(const point of domain.get_corners()) {
+      if(this.contain(point))return true;
+    }
+  }
+  get_overlaps(domain) {
+    
   }
 }
 
@@ -470,7 +537,7 @@ let interactiveDomainIDCounter = 0;
 function createTouchableDomain(sx, sy, ex, ey, sensorType) {
   const id = ++interactiveDomainIDCounter;
   const subscriptionEntry = new SubscriptionEntry();
-  touchEventAllocator.subscribeDomain(new Domain([sx, sy], [ex, ey]), subscriptionEntry);
+  touchEventAllocator.subscribeDomain(new NdDomain([sx, sy], [ex, ey]), subscriptionEntry);
   return subscriptionEntry;
 }
 
