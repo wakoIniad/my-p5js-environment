@@ -212,6 +212,9 @@ class TitleScene extends Scene {
 
   /**@override */
   init() {
+    console.log(...rectFormatChange(
+      "center", "corner", width/2, height/2+height/3, width/1.5, height/8
+    ))
     const subscription = createTouchableDomain(...rectFormatChange(
       "center", "corner", width/2, height/2+height/3, width/1.5, height/8
     ), "click");
@@ -556,7 +559,7 @@ class NdDomain {
   contain(point) {
     return point.reduce((cur, val, i)=>cur && Math.abs(this.domain_center[i] - val) <= this.domain_width[i], true)
   }
-  overlap(domain) {
+  /*overlap(domain) {
     if(this.n !== domain.n)throw new ProcessorrError("unmatch designated dimention and argument dimention");
     //後: これより良い方法 
     for(const point of this.get_corners()) {
@@ -566,6 +569,33 @@ class NdDomain {
       if(this.contain(point))return true;
     }
     return false;
+  }*/
+ overlap(domain) {
+    if(this.n !== domain.n)throw new ProcessorrError("unmatch designated dimention and argument dimention");
+    let flag = true; 
+
+    const inner = (s,e,t)=>s<=t && t<=e;
+    const union_and = (...v)=>v.reduce((res,v)=> res&&v, true);
+    const union_or = (...v)=>v.reduce((res,v)=> res||v, false);
+
+    const overlap(pp1, pp2) => {
+      union_or([this.domain_start[0], this.domain_end[0]].map(v=>inner(
+        domain.domain_start[0], domain.domain_end[0], v
+      ))) && /**寝る！！！！！！！！ */
+    }
+    return (union_or([this.domain_start[0], this.domain_end[0]].map(v=>inner(
+      domain.domain_start[0], domain.domain_end[0], v
+    )))
+      &&
+    () || (
+    union_or([this.domain_start[1], this.domain_end[1]].map(v=>inner(
+      domain.domain_start[1], domain.domain_end[1], v
+      )))
+      &&
+    union_or([domain.domain_start[0], domain.domain_end[0]].map(v=>inner(
+      this.domain_start[0], this.domain_end[0], v
+    )))
+    );
   }
   containDomain(domain) {
     for(const corner of domain.get_corners()) {
