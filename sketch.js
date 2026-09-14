@@ -87,8 +87,13 @@ function logging(...$) {
   //alert(JSON.stringify($));
   console.log(...$);
 }
+
 logging.prototype.err = function(...$) {
   console.error(...$);
+}
+
+logging.prototype.warn = function(...$) {
+  console.warn(...$);
 }
 
 const $ = {
@@ -110,7 +115,7 @@ const inline_logging = new Proxy(logging, {
   },
 
   get: function(target, property, thisArg) {
-    return (res=null, ...args)=> {
+    return (res=null, ...args) => {
       if(typeof target[property] == "function") {
         return ()=> {
           target[property].apply(thisArg, ...args);
@@ -147,7 +152,6 @@ function locate(img, pivotMode, expandingMode) {
 const scenes = {
   title:{
     init: ()=>{
-    
       buttons.start.mousePressed(()=> {
         loadScene("play");
       });
@@ -242,7 +246,7 @@ class SubscriptionSystem {
   }
 }
 
-class Subscriber {
+class SubscriptionEntry {
   constructor(handler) {
     this.canceled = false;
     this.handler = handler;
@@ -272,7 +276,7 @@ class Subscriber {
 }*/
 
 //Bi Quad Oct...
-class multiPurposeNDTree {
+class MultiPurposeNDTree {
   static DomainProp({parent}) {
     return {parent: parent||null, children:[], prop: {}};
   }
@@ -280,7 +284,7 @@ class multiPurposeNDTree {
     this.n = n;
     if(ss.length != n || es.length != n)
       throw new ProcessorrError();
-    this.root = new Domain(ss, es, multiPurposeNDTree.DomainProp());
+    this.root = new Domain(ss, es, MultiPurposeNDTree.DomainProp());
     this.modifier=modifier;
   }
   elaborate_entire_tree(at) {
@@ -343,29 +347,39 @@ class multiPurposeNDTree {
   }
 }
 
-class TouchEventAllocator extends multiPurposeNDTree {
-  static handlePointerMove = false;
-  static eventShortestDuration = 1/30;
+class TouchEventAllocator extends MultiPurposeNDTree {
+  static HANDLE_POINTER_MOVE = false;
+  static EVENT_SHORTEST_INTERVAL = 1/30;
+  static mainInstance = null;
   static ModifyDomainProp(raw) {
-    raw.prop["subscription"] = [];
+    raw.subscription = new SubscriptionSystem();
   }
-  constructor(...args) {
-    super(...args, TouchEventAllocator.ModifyDomainProp);
+  constructor(width, height) {
+    super(2, [0, 0], [width, height], TouchEventAllocator.ModifyDomainProp);
+    if(TouchEventAllocator.mainInstance) {
+      logging.warn("SingletonInstance was overrided: TouchEventAllocator");
+      TouchEventAllocator.mainInstance = this;
+    } else TouchEventAllocator.mainInstance = this, this._window_event_register();
+  }
+  _window_event_register() {
+    window.addEventListener("pinterdown", function(e) {
+      const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY],"point");
+      target._backtracing_call(e);
+    });
+    if(TouchEventAllocator.HANDLE_POINTER_MOVE) {
+      window.addEventListener("pointermove", function(e) {
+        const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY], "point");
+        target._backtracing_call(e);
+      });
+    }
   }
   elaborate_entire_tree(at) {
     super.elaborate_entire_tree(at);
   }
 
-  _backtrace_with_functioncalling(node, data={}) {
+  _backtracing_call(node, data={}) {
     do {
-      for(const [i, subscription] of node.property.prop["subscriber_list"].entries()) {
-        if(subscription.unsubscribed) {
-          delete node.property.prop["subscriber_list"][i];
-        } else {
-          subscription.callback(data);
-        }
-      }
-      node.property.prop["subscriber_list"] = node.property.prop["subscriber_list"].flat();
+      node.property.subscription.provide();
       node = node.property.parent;
     }
     while(node.property.parent);
@@ -373,8 +387,8 @@ class TouchEventAllocator extends multiPurposeNDTree {
 
   subscribeDomain(domain, entry) {
     while(true) {
-      for(const dom of this.serach(domain, "overlap-fit")) {
-        dom.property.prop["subscriber_list"].push(entry);
+      for(const dom of this.search(domain, "overlap-fit")) {
+        dom.property.subscription.subscrbe(entry);
       };
     }
   }
@@ -395,11 +409,11 @@ class Domain {
   }
 }
 
-const interactiveDomain = new multiPurposeQuadTree();//domain-id
 let interactiveDomainIDCounter = 0;
 function makeInteractiveDomain(sx, sy, ex, ey, sensorType) {
   const id = ++interactiveDomainIDCounter;
   root = interactiveDomain.root;
+  touchEventAllocator.subscribeDomain(new Domain([sx, sy], [ex, ey]), new SubscriptionEntry());
 }
 
 const DEFAULT_SCENE_KEY = "title";
@@ -424,14 +438,3 @@ function draw() {
 
 
 const touchEventAllocator = new TouchEventAllocator(window.clientWidth, window.clientHeight);
-function WindowEventRegister() {
-  window.addEventListener("pinterdown", function(e) {
-    const target = touchEventAllocator.serach([e.clientX, e.clientY],"point");
-    target._backtrace_with_functioncalling
-  });
-  if(touchEventAllocator.handlePointerMove) {
-    window.addEventListener("pointermove", function(e) {
-      touchEventAllocator.serach([e.clientX, e.clientY], "point");
-    });
-  }
-}
