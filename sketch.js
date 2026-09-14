@@ -188,12 +188,12 @@ const scenes = {
     draw: (clock, data)=>{
       audios.title.loop();
       //text("AIUOE", ...util.CENTER);
-      logging(locate(images.title_base, $.center, $.cover));
+      //logging(locate(images.title_base, $.center, $.cover));
       image(...locate(images.title_base, $.center, $.cover));
     }
   },
   play:(clock, data)=>{
-    
+    logging("switched");
   },
   rev:(clock, data)=>{
 
@@ -253,6 +253,8 @@ class SubscriptionSystem {
     for(const [i, subscriber] of this.subscribers.entries()) {
       if(subscriber.canceled) {
         delete this.subscribers[i];
+      } else {
+        subscriber.callback(data);
       }
     }
     this.subscribers = this.subscribers.flat();
@@ -322,7 +324,7 @@ class MultiPurposeNDTree {
   }
   elaborate_entire_tree(at) {
     const domain = this.search(at, "point");
-    domain.property = new Array(2**this.n).fill().map((_,i)=>new Domain(
+    domain.property.children = new Array(2**this.n).fill().map((_,i)=>new Domain(
       domain.domain_start.map((val,j)=> val + domain.domain_width[j]*((i>>j)&1)),
       domain.domain_end.map((val,j)=> val - domain.domain_width[j]*(1-(i>>j)&1))
     ), //MultiPurposeNDTree.DomainProp().RegisterProp("parent", domain).ApplyModifier(this.modifier)
@@ -365,7 +367,7 @@ class MultiPurposeNDTree {
       case "point":
         let scanning = this.root;
         while(true) {
-          for(const domain of scanning.property) {
+          for(const domain of scanning.property.children) {
             if(domain.contain(target)) {
               scanning = domain;
               break;
@@ -399,14 +401,14 @@ class TouchEventAllocator extends MultiPurposeNDTree {
     } else TouchEventAllocator.mainInstance = this, this._window_event_register();
   }
   _window_event_register() {
-    window.addEventListener("pinterdown", function(e) {
-      const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY],"point");
-      target._backtracing_call(e);
+    window.addEventListener("pointerdown", function(e) {
+      const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY], "point");
+      TouchEventAllocator.mainInstance._backtracing_call(target, e);
     });
     if(TouchEventAllocator.HANDLE_POINTER_MOVE) {
       window.addEventListener("pointermove", function(e) {
         const target = TouchEventAllocator.mainInstance.search([e.clientX, e.clientY], "point");
-        target._backtracing_call(e);
+        TouchEventAllocator.mainInstance._backtracing_call(target, e);
       });
     }
   }
@@ -416,16 +418,16 @@ class TouchEventAllocator extends MultiPurposeNDTree {
 
   _backtracing_call(node, data={}) {
     do {
-      node.property.subscription.provide();
-      node = node.property.parent;
+      node.property.subscription.provide(data);
+      node = node.property.parent
     }
-    while(node.property.parent);
+    while(node);
   }
 
   subscribeDomain(domain, entry) {
     
-    for(const dom of this.search(domain, "overlap-fit")) 
-      dom.property.subscription.subscrbe(entry);
+    for(const target of this.search(domain, "overlap-fit")) 
+      target.property.subscription.subscrbe(entry);
     
   }
 }
