@@ -219,32 +219,134 @@ async function setup() {
   }
 }*/
 
-class multiPurposeQuadTree {
-  constructor() {
-    this.root = [
-      new Domain(), 
-      new Domain(), 
-      new Domain(), 
-      new Domain()
-    ];
+class ProcessorrError extends Error {
+  constructor(...args) {
+    super(...args);
   }
-  buildTree(reference) {
+}
 
+class SubscriptionSystem {
+  constructor() {
+
+  }
+
+}
+
+class SubscriptionListener {
+  constructor(callback) {
+    this.keep_subscribe = true;
+    this._callback = callback;
+  }
+  call(self_break) {
+    if(!this.keep_subscribe) {
+      self_break();
+      return;
+    }
+    const survey = (keep) => {
+      if(keep) {
+        this.keep_subscribe = true;
+      } else this.keep_subscribe = false;
+    }
+    this._callback(survey);
+  }
+}
+
+//Bi Quad Oct...
+class multiPurposeNDTree {
+  constructor(n, ss, es) {
+    this.n = n;
+    if(ss.length != n || es.length != n)
+      throw new ProcessorrError();
+    this.root = Domain(ss, es, [])
+  }
+  elaborate_entire_tree(at) {
+    const domain = this.search(at, "point");
+    /**
+     * 
+     */
+    domain.property = new Array(2**this.n).fill().map((_,i)=>new Domain(
+      domain.ss.map((val,j)=> 
+        val + (domain.es[j]-val)/2*((i<<j)&1)>>j),
+        //(val + domain.es * ((i<<j)&1)>>j))/(1+((i<<j)&1)>>j)),
+      domain.es.map((val,j)=> 
+        //val - val/2 * ((i<<j)&1)>>j 
+        val - (val - domain.ss[j])/2*((i<<j)&1)>>j)
+    ), []
+    );
   }
   search(target, type) {
     switch(type) {
-      case"overlap":
+      case "overlap":
+        /**target: domain */
+        const candidates = [this.root];
+        const result = [];
+        while(candidates.length) {
+          const scanning = candidates.pop();
+          const corners = 
+          new Array(2**this.n).fill().map((_,i)=>
+            scanning.ss.map((val,j)=>
+              val * (((i<<j)&1)>>j) + scanning.es[i] * (1-(((i<<j)&1)>>j))
+            ),
+            //scanning.es.map((val,j)=>val * ((i<<j)&1)>>j), []
+          );
+          const innerCorners = 0;
+          for(let i=0,corner=null; i < corners, corner=corners[i].length;i++) {
+            innerCorners += target.contain(corner)*2**i;
+          }
+          if(innerCorners === 2**this.n-1) {
+            result.push(innerCorners);
+          } else if(innerCorners && scanning.property.length) {
+            (1-(((i<<j)&1)>>j)) + val * (((i<<j)&1)>>j)
+          }
+        } 
         break;
-      
+      case "point":
+        let scanning = this.root;
+        
+        while(true) {
+          for(const domain of scanning.property) {
+            if(domain.contain(target)) {
+              scanning = domain;
+              break;
+            }
+          }
+          break;
+        }
+        if(!scanning.contain(target))
+          throw new ProcessorrError("MultiPurposeNDTree: out of domain");
+        return scanning;
     }
   }
   apply(element) {
+    
+  }
+}
 
+class TouchEventAllocator extends multiPurposeNDTree {
+  constructor(...args) {
+    super(...args);
+  }
+  _backtrace_with_functioncalling(node) {
+    while(true) {
+      callback: node.property...();
+      const parent = node.property...;
+    }
+  }
+  subscribeDomain(domain) {
+    while(true) {
+      for(const dom of this.serach(domain, "overlap")) {
+        if(lack) {
+          this.search(domain, 'overlap', dom);...##
+        } elif(full) {
+          dom--subscribe();
+        }
+      };
+    }
   }
 }
 
 class Domain {
-  constructor(ss, es, value=null) {
+  constructor(ss, es, property=null) {
     this.domain_start = ss;
     this.domain_end = es;
     this._judgement = 
@@ -255,9 +357,9 @@ class Domain {
       //xa: (sx-ex)/2, xb: (sx+ex)/2, 
       //ya: (sy-ey)/2, yb: (sy+ey)/2
     };
-    this.value = value;
+    this.property = property;
   }
-  overlap(point) {
+  contain(point) {
     return point.reduce((cur, val, i)=>cur && Math.abs(this._judgement.as[i] - val) < this._judgement.bs[i], true)
     /*return
     Math.abs(this._judgement.xa - x) < this._judgement[xb]
@@ -271,7 +373,7 @@ const interactiveDomain = new multiPurposeQuadTree();//domain-id
 let interactiveDomainIDCounter = 0;
 function makeInteractiveDomain(sx, sy, ex, ey, sensorType) {
   const id = ++interactiveDomainIDCounter;
-  //root = 
+  root = interactiveDomain.root;
 }
 
 const DEFAULT_SCENE_KEY = "title";
@@ -292,4 +394,11 @@ function draw() {
     //  logging(e);
     //}
   }
+}
+
+function WindowEventRegister() {
+  window.addEventListener("pinterdown", function(e) {
+    getAt e.clientX, e.clientX
+    
+  });
 }
