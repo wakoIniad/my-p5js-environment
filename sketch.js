@@ -61,11 +61,15 @@ function _adapt_browser_environment_changing() {
 const images = {
   title_base: "./res/title-base.png",
   start_button: "./res/start-button.png",
-  title_text: "./res/title-text.png"
+  title_text: "./res/title-text.png",
+  title_text_en: "./res/en/title-text.png",
+  start_button_en: "./res/en/start-button.png",
+  lang_button: "./res/button_lang.png",
 };
 
 const audios = {
-  title: "./res/minahadairo.mp3",
+  title: "./res/as2.mp3",
+  title_: "./res/minahadairo.mp3",
 };
 
 const sprites = {
@@ -219,15 +223,45 @@ class TitleScene extends Scene {
       "center", "corner", width/2, height/2+height/3, width/1.5, height/8
     ), "click");
 
+    
+    const language_subs = createTouchableDomain(...rectFormatChange(
+      "center", "corner", width*7/8, height*7/8, width/24*3, height/24*3/1.1
+    ), "click");
+
+
     /**just for a logging */
     this.variables["test"] = subscription;
+    this.variables["test2"] = language_subs;
+
+    this.variables["en"] = true;
 
     subscription.callback = function(e) {
       /**仮　**寝不足コード:シーンマネージャーの扱い */
       SceneManager.loadScene("play");
       subscription.cancel = true;
-      
     }
+
+    language_subs.callback = (e)=> {
+      /**仮　**寝不足コード:シーンマネージャーの扱い */
+      if(this.variables["en"]) {
+        let tmp1 = images.title_text;
+        let tmp2 = images.start_button;
+        images.title_text = images.title_text_en;
+        images.start_button = images.start_button_en;
+        images.title_text_en = tmp1;
+        images.start_button_en = tmp2;
+      } else {
+        let tmp1 = images.title_text;
+        let tmp2 = images.start_button;
+        images.title_text = images.title_text_en;
+        images.start_button = images.start_button_en;
+        images.title_text_en = tmp1;
+        images.start_button_en = tmp2;
+      }
+      this.variables["en"] = !this.variables["en"];
+    }
+
+    audios.title.loop();
   }
   /**@override */
   draw() {
@@ -235,24 +269,28 @@ class TitleScene extends Scene {
     fill(255);
     stroke(0);
 
-    audios.title.loop();
     image(...locateImage(images.title_base, $.center, $.cover));
-    image(images.title_text, width/2, height/2+height/6);
-    image(images.start_button, width/2, height/2+height/3);
-    rect(...rectFormatChange("center", "origin", width/2, height/2+height/3, width/1.5, height/8));
+    image(images.title_text, width/2, height/2/*-height/6*/,width/3*1.35, height/16*1.35);
+    image(images.start_button, width/2, height/2+height/3, width/2.2/1.3, height/16/1.3);
+    image(images.lang_button, width*7/8, height*7/8, width/24*3, height/24*3/1.1);
+//    rect(...rectFormatChange("center", "origin", width/2, height/2+height/3, width/1.5, height/8));
 
     noFill();
     stroke(255,0,0);
     strokeWeight(2);
     
-    this.variables["test"]._targets.forEach(e=>{
-      //console.log(e);
-      rect(
-        e.domain_start[0], e.domain_start[1],
-        e.domain_end[0]-e.domain_start[0], 
-        e.domain_end[1]-e.domain_start[1]
-      );
-    });
+    function debug(targets) {
+      targets.forEach(e=>{
+        //console.log(e);
+        rect(
+          e.domain_start[0], e.domain_start[1],
+          e.domain_end[0]-e.domain_start[0], 
+          e.domain_end[1]-e.domain_start[1]
+        );
+      });
+    }
+    debug(this.variables["test"]._targets);
+    debug(this.variables["test2"]._targets);
   }
 }
 
@@ -289,12 +327,6 @@ async function setup() {
   for(const name of Object.keys(images)) {
     /**This may cause problem when porting: unmatch type */
     images[name] = await loadImage(images[name]);
-  }
-  for(const name of Object.keys(buttons)) {
-    const [label, callback] = buttons[name];
-    /**This may cause problem when porting: unmatch type */
-    buttons[name] = createButton(label);
-    buttons[name].mousePressed(callback);
   }
 
   SceneManager.loadScene(DEFAULT_SCENE_KEY);
@@ -578,24 +610,13 @@ class NdDomain {
     const union_and = (...v)=>v.reduce((res,v)=> res&&v, true);
     const union_or = (...v)=>v.reduce((res,v)=> res||v, false);
 
-    const overlap(pp1, pp2) => {
-      union_or([this.domain_start[0], this.domain_end[0]].map(v=>inner(
-        domain.domain_start[0], domain.domain_end[0], v
-      ))) && /**寝る！！！！！！！！ */
-    }
-    return (union_or([this.domain_start[0], this.domain_end[0]].map(v=>inner(
-      domain.domain_start[0], domain.domain_end[0], v
-    )))
-      &&
-    () || (
-    union_or([this.domain_start[1], this.domain_end[1]].map(v=>inner(
-      domain.domain_start[1], domain.domain_end[1], v
+    return union_and(...new Array(this.n).fill().map((_, i)=>
+      union_or(...[this.domain_start[i], this.domain_end[i]].map(v=>inner(
+        domain.domain_start[i], domain.domain_end[i], v
+      )),...[domain.domain_start[i], domain.domain_end[i]].map(v=>inner(
+        this.domain_start[i], this.domain_end[i], v
       )))
-      &&
-    union_or([domain.domain_start[0], domain.domain_end[0]].map(v=>inner(
-      this.domain_start[0], this.domain_end[0], v
-    )))
-    );
+    ));
   }
   containDomain(domain) {
     for(const corner of domain.get_corners()) {
@@ -637,4 +658,6 @@ function draw() {
 }
 
 
-const touchEventAllocator = new TouchEventAllocator(window.innerWidth, window.innerHeight, 2);
+const touchEventAllocator = new TouchEventAllocator(window.innerWidth, window.innerHeight, 16);
+
+addEventListener("keydown", (event) => {});
